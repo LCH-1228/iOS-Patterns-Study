@@ -30,6 +30,9 @@ class PokemonDetailView: UIView {
         label.font = .systemFont(ofSize: 28, weight: .bold)
         label.textColor = .ColorSet.fontPrimary
         label.textAlignment = .center
+        label.numberOfLines = 2
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.5
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -91,8 +94,8 @@ class PokemonDetailView: UIView {
             imageView.trailingAnchor.constraint(equalTo: contentsBackgroundView.trailingAnchor, constant: -72),
             imageView.topAnchor.constraint(equalTo: contentsBackgroundView.topAnchor, constant: 10),
             
-            idAndNameLabel.leadingAnchor.constraint(equalTo: contentsBackgroundView.leadingAnchor),
-            idAndNameLabel.trailingAnchor.constraint(equalTo: contentsBackgroundView.trailingAnchor),
+            idAndNameLabel.leadingAnchor.constraint(equalTo: contentsBackgroundView.leadingAnchor, constant: 10),
+            idAndNameLabel.trailingAnchor.constraint(equalTo: contentsBackgroundView.trailingAnchor, constant: -10),
             idAndNameLabel.topAnchor.constraint(equalTo: imageView.bottomAnchor, constant: 10),
             
             typeLabel.leadingAnchor.constraint(equalTo: contentsBackgroundView.leadingAnchor),
@@ -110,7 +113,9 @@ class PokemonDetailView: UIView {
     }
     
     func configure(with data: PokemonDetailData) {
-        idAndNameLabel.text = data.idAndName
+        let originalText = data.idAndName
+        let formattedText = originalText.replacingOccurrences(of: " (", with: "\n(")
+        idAndNameLabel.text = formattedText
         typeLabel.text = data.type
         heightLabel.text = data.height
         weightLabel.text = data.weight
