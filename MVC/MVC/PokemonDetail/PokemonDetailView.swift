@@ -126,6 +126,6 @@ class PokemonDetailView: UIView {
     }
     
     func setDefaultImage() {
-        imageView.image = UIImage(systemName: "questionmark.circle")
+        imageView.image = UIImage(resource: .default)
     }
 }

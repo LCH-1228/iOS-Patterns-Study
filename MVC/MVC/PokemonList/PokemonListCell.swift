@@ -56,6 +56,6 @@ class PokemonListCell: UICollectionViewCell {
     }
     
     func setDefaultImage() {
-        imageView.image = UIImage(systemName: "questionmark.circle")
+        imageView.image = UIImage(resource: .default)
     }
 }
