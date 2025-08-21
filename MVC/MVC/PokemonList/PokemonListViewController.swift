@@ -72,24 +72,20 @@ final class PokemonListViewController: BaseViewController {
             if let cachedData = self.imageCacheManager.getImage(forKey: id) {
                 cell.setImage(imageData: cachedData)
             } else {
-                self.networkManager.fetchImage(id: id) { [weak cell] response in
-                    
-                    guard cell?.currentData == itemIdentifier else {
-                        return
-                    }
-                    
-                    DispatchQueue.main.async {
-                        switch response {
-                        case .success(let data):
-                            if let data {
-                                cell?.setImage(imageData: data)
-                                self.imageCacheManager.setImage(data, forKey: id)
-                            } else {
-                                cell?.setDefaultImage()
-                            }
-                        case .failure(let error):
-                            self.showError(error: error)
+                Task { @MainActor in
+                    do {
+                        let data = try await self.networkManager.fetchImage(id: id)
+                        
+                        guard cell.currentData == itemIdentifier else { return }
+                        
+                        if let imageData = data {
+                            cell.setImage(imageData: imageData)
+                            self.imageCacheManager.setImage(imageData, forKey: id)
+                        } else {
+                            cell.setDefaultImage()
                         }
+                    } catch {
+                        self.showError(error: error)
                     }
                 }
             }
@@ -101,22 +97,20 @@ final class PokemonListViewController: BaseViewController {
         guard !isFetching else { return }
         isFetching = true
         
-        networkManager.fetchPokemonList(offset: offset) { [weak self] response in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                switch response {
-                case .success(let result):
-                    self.pokemonList.append(contentsOf: result.results)
-                    self.updateSnapshot()
-                    self.isEndData = result.next == nil ? true : false
-                case .failure(let error):
-                    self.showError(error: error)
-                }
-                self.isFetching = false
+        Task { @MainActor in
+            do {
+                let result = try await networkManager.fetchPokemonList(offset: offset)
+                pokemonList.append(contentsOf: result.results)
+                updateSnapshot()
+                isEndData = result.next == nil ? true : false
+            } catch {
+                showError(error: error)
             }
+            isFetching = false
         }
     }
     
+    @MainActor
     private func updateSnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, PokemonListData>()
         snapshot.appendSections([.main])
@@ -125,6 +119,7 @@ final class PokemonListViewController: BaseViewController {
         dataSource.apply(snapshot, animatingDifferences: true)
     }
     
+    @MainActor
     private func showError(error: Error) {
         let message: String
         if let networkError = error as? NetworkError {
