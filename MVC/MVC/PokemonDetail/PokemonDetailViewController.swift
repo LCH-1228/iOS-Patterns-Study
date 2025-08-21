@@ -63,19 +63,31 @@ class PokemonDetailViewController: BaseViewController {
                             if let data {
                                 self.rootView.setImage(imageData: data)
                             } else {
-                                self.rootView.setDefaultImage()
+                                self.showToast(message: "이미지가 없는 포켓몬 입니다.", opcity: 0.7)
                             }
                         }
                     case .failure(let error):
-                        let networkError = error as? NetworkError
-                        print(networkError)
+                        DispatchQueue.main.async {
+                            self.showError(error: error)
+                        }
                     }
                 }
                 
             case .failure(let error):
-                let networkError = error as? NetworkError
-                print(networkError)
+                DispatchQueue.main.async {
+                    self.showError(error: error)
+                }
             }
         }
+    }
+    
+    private func showError(error: Error) {
+        let message: String
+        if let networkError = error as? NetworkError {
+            message = networkError.message
+        } else {
+            message = error.localizedDescription
+        }
+        showToast(message: message, opcity: 0.7)
     }
 }

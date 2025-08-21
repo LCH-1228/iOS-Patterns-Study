@@ -71,21 +71,19 @@ final class PokemonListViewController: BaseViewController {
                     return
                 }
                 
-                switch response {
-                case .success(let data):
-                    DispatchQueue.main.async {
+                DispatchQueue.main.async {
+                    switch response {
+                    case .success(let data):
                         if let data {
                             cell?.setImage(imageData: data)
                         } else {
                             cell?.setDefaultImage()
                         }
+                    case .failure(let error):
+                        self.showError(error: error)
                     }
-                case .failure(let error):
-                    let networkError = error as? NetworkError
-                    networkError?.message
                 }
             }
-            
             return cell
         })
     }
@@ -96,16 +94,16 @@ final class PokemonListViewController: BaseViewController {
         
         networkManager.fetchPokemonList(offset: offset) { [weak self] response in
             guard let self else { return }
-            switch response {
-            case .success(let result):
-                self.pokemonList.append(contentsOf: result.results)
-                self.updateSnapshot()
-            case .failure(let error):
-                let networkError = error as? NetworkError
-                print(networkError?.message)
+            DispatchQueue.main.async {
+                switch response {
+                case .success(let result):
+                    self.pokemonList.append(contentsOf: result.results)
+                    self.updateSnapshot()
+                case .failure(let error):
+                    self.showError(error: error)
+                }
+                self.isFetching = false
             }
-            
-            self.isFetching = false
         }
     }
     
@@ -115,6 +113,16 @@ final class PokemonListViewController: BaseViewController {
         snapshot.appendItems(pokemonList, toSection: .main)
         
         dataSource.apply(snapshot, animatingDifferences: true)
+    }
+    
+    private func showError(error: Error) {
+        let message: String
+        if let networkError = error as? NetworkError {
+            message = networkError.message
+        } else {
+            message = error.localizedDescription
+        }
+        showToast(message: message, opcity: 0.7)
     }
 }
 
