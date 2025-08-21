@@ -15,6 +15,7 @@ final class PokemonListViewController: BaseViewController {
     
     private let rootView: PokemonListView
     private let networkManager = NetworkManager.shared
+    private let imageCacheManager = ImageCacheManager.shared
     private var dataSource: UICollectionViewDiffableDataSource<Section, PokemonListData>!
     
     private var pokemonList = [PokemonListData]()
@@ -55,7 +56,9 @@ final class PokemonListViewController: BaseViewController {
     
     private func configureDataSource() {
         let collectionView = rootView.getCollectionView()
-        dataSource = UICollectionViewDiffableDataSource<Section, PokemonListData>(collectionView: collectionView, cellProvider: { collectionView, indexPath, itemIdentifier in
+        dataSource = UICollectionViewDiffableDataSource<Section, PokemonListData>(collectionView: collectionView, cellProvider: { [weak self] collectionView, indexPath, itemIdentifier in
+            
+            guard let self else { return UICollectionViewCell() }
             
             guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: String(describing: PokemonListCell.self), for: indexPath) as? PokemonListCell else {
                 return UICollectionViewCell()
@@ -65,22 +68,27 @@ final class PokemonListViewController: BaseViewController {
             
             cell.configure(with: itemIdentifier)
             
-            self.networkManager.fetchImage(id: id) { [weak cell] response in
-                
-                guard cell?.currentData == itemIdentifier else {
-                    return
-                }
-                
-                DispatchQueue.main.async {
-                    switch response {
-                    case .success(let data):
-                        if let data {
-                            cell?.setImage(imageData: data)
-                        } else {
-                            cell?.setDefaultImage()
+            if let cachedData = self.imageCacheManager.getImage(forKey: id) {
+                cell.setImage(imageData: cachedData)
+            } else {
+                self.networkManager.fetchImage(id: id) { [weak cell] response in
+                    
+                    guard cell?.currentData == itemIdentifier else {
+                        return
+                    }
+                    
+                    DispatchQueue.main.async {
+                        switch response {
+                        case .success(let data):
+                            if let data {
+                                cell?.setImage(imageData: data)
+                                self.imageCacheManager.setImage(data, forKey: id)
+                            } else {
+                                cell?.setDefaultImage()
+                            }
+                        case .failure(let error):
+                            self.showError(error: error)
                         }
-                    case .failure(let error):
-                        self.showError(error: error)
                     }
                 }
             }
