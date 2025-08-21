@@ -31,7 +31,7 @@ enum NetworkError: Error {
         case .decodingfailed:
             return "디코딩에 실패했습니다."
         case .InvalidImageData:
-                    return "유효하지 않은 이미지 데이터 입니다."
+            return "유효하지 않은 이미지 데이터 입니다."
         }
     }
 }
