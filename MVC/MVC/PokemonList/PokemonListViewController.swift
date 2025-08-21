@@ -23,6 +23,7 @@ final class PokemonListViewController: BaseViewController {
     private var isFetching = false
     private var scrollThreshold: CGFloat = 5.0
     private var fetchLimit = 20
+    private var isEndData = false
     
     init(rootView: PokemonListView) {
         self.rootView = rootView
@@ -107,6 +108,7 @@ final class PokemonListViewController: BaseViewController {
                 case .success(let result):
                     self.pokemonList.append(contentsOf: result.results)
                     self.updateSnapshot()
+                    self.isEndData = result.next == nil ? true : false
                 case .failure(let error):
                     self.showError(error: error)
                 }
@@ -150,6 +152,11 @@ extension PokemonListViewController: UICollectionViewDelegate {
         guard scrollPosition >= contentHeight + scrollThreshold else { return }
         
         guard !isFetching else { return }
+        
+        guard !isEndData else {
+            showToast(message: "페이지의 끝입니다.", opcity: 0.7)
+            return
+        }
         
         offset += fetchLimit
         fetchData()
