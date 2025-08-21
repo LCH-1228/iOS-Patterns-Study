@@ -19,7 +19,7 @@ class ToastView: UIStackView {
         let image = UIImage(systemName: "exclamationmark.circle", withConfiguration: configuration)
         let imageView = UIImageView(image: image)
         imageView.contentMode = .scaleAspectFit
-        imageView.tintColor = .white
+        imageView.tintColor = .ColorSet.light
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
@@ -28,7 +28,7 @@ class ToastView: UIStackView {
         let label = UILabel()
         label.numberOfLines = 0
         label.font = .systemFont(ofSize: 16)
-        label.textColor = .white
+        label.textColor = .ColorSet.light
         label.textAlignment = .center
         return label
     }()
@@ -52,7 +52,7 @@ class ToastView: UIStackView {
     
     private func setup() {
         label.text = message
-        backgroundColor = .black.withAlphaComponent(opcity)
+        backgroundColor = .ColorSet.dark.withAlphaComponent(opcity)
         spacing = 8
         alignment = .center
         isLayoutMarginsRelativeArrangement = true

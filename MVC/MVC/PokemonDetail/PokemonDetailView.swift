@@ -28,7 +28,7 @@ class PokemonDetailView: UIView {
     let idAndNameLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 28, weight: .bold)
-        label.textColor = .ColorSet.fontPrimary
+        label.textColor = .ColorSet.light
         label.textAlignment = .center
         label.numberOfLines = 2
         label.adjustsFontSizeToFitWidth = true
@@ -40,7 +40,7 @@ class PokemonDetailView: UIView {
     let typeLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
-        label.textColor = .ColorSet.fontPrimary
+        label.textColor = .ColorSet.light
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -49,7 +49,7 @@ class PokemonDetailView: UIView {
     let heightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
-        label.textColor = .ColorSet.fontPrimary
+        label.textColor = .ColorSet.light
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -58,7 +58,7 @@ class PokemonDetailView: UIView {
     let weightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
-        label.textColor = .ColorSet.fontPrimary
+        label.textColor = .ColorSet.light
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label

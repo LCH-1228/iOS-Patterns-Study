@@ -32,7 +32,7 @@ class BaseViewController: UIViewController {
         if navigationController?.viewControllers.first !== self {
             var config = UIButton.Configuration.plain()
             config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: -4, bottom: 0, trailing: 0)
-            config.baseForegroundColor = .black
+            config.baseForegroundColor = .ColorSet.dark
             config.image = UIImage(systemName: "chevron.left",
                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
             )

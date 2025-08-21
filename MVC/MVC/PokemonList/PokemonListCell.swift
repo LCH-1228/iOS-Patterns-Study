@@ -13,7 +13,7 @@ class PokemonListCell: UICollectionViewCell {
     
     private let imageView: UIImageView = {
         let imageView = UIImageView()
-        imageView.backgroundColor = .ColorSet.imageBackground
+        imageView.backgroundColor = .ColorSet.imageBackgroundLight
         imageView.contentMode = .scaleAspectFit
         imageView.layer.cornerRadius = 8
         imageView.clipsToBounds = true
