@@ -47,11 +47,7 @@ class PokemonDetailViewController: BaseViewController {
             guard let self else { return }
             switch response {
             case .success(let result):
-                let pokemonData = PokemonDetailData(
-                    idAndName: "No.\(result.id)  \(PokemonName.translate(name: result.name))",
-                    type: "타입: \(result.types[0].type.name.translatedType)",
-                    height: "키: \(Float(result.height) / 10) m",
-                    weight: "몸무게: \(Float(result.weight) / 10) kg")
+                let pokemonData = PokemonDataFormatter.detailFormat(response: result)
                 
                 if let cachedData = imageCacheManager.getImage(forKey: id) {
                     DispatchQueue.main.async {
