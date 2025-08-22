@@ -68,7 +68,7 @@ final class PokemonListViewController: BaseViewController {
             guard let id = itemIdentifier.id else { return cell }
             
             cell.configure(with: itemIdentifier)
-            
+            cell.startLoading()
             if let cachedData = self.imageCacheManager.getImage(forKey: id) {
                 cell.setImage(imageData: cachedData)
             } else {
@@ -103,10 +103,34 @@ final class PokemonListViewController: BaseViewController {
                 pokemonList.append(contentsOf: result.results)
                 updateSnapshot()
                 isEndData = result.next == nil ? true : false
+                
+                Task.detached { [weak self] in
+                    guard let self else { return }
+                    await self.prefetchImages(for: result.results)
+                }
             } catch {
                 showError(error: error)
             }
             isFetching = false
+        }
+    }
+    
+    // MARK: - Prefetch Images
+    // UX 개선을 위해 fetchPokemonList직 후 이미지를 imageCacheManager에 저장
+    // 셀 에서 이미지 로딩 로직이 있으므로 예외처리 생략
+    private func prefetchImages(for items: [PokemonListData]) async {
+        for item in items {
+            guard let id = item.id else { continue }
+            
+            if imageCacheManager.getImage(forKey: id) != nil { continue }
+            
+            do {
+                if let data = try await networkManager.fetchImage(id: id) {
+                    imageCacheManager.setImage(data, forKey: id)
+                }
+            } catch {
+                
+            }
         }
     }
     
