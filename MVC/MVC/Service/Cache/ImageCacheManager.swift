@@ -8,7 +8,7 @@
 
 import Foundation
 
-class ImageCacheManager {
+final class ImageCacheManager {
     
     static let shared = ImageCacheManager()
     private let cache = NSCache<NSNumber, NSData>()

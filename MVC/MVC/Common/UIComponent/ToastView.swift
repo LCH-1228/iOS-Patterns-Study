@@ -7,7 +7,7 @@
 
 import UIKit
 
-class ToastView: UIStackView {
+final class ToastView: UIStackView {
     
     private let message: String
     private let opcity: CGFloat

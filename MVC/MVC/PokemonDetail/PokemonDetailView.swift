@@ -7,9 +7,10 @@
 
 import UIKit
 
-class PokemonDetailView: UIView {
+final class PokemonDetailView: UIView {
     
-    let contentsBackgroundView: UIView = {
+    private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    private let contentsBackgroundView: UIView = {
         let view = UIView()
         view.backgroundColor = .ColorSet.secondary
         view.layer.cornerRadius = 8
@@ -18,14 +19,14 @@ class PokemonDetailView: UIView {
         return view
     }()
     
-    let imageView: UIImageView = {
+    private let imageView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
     
-    let idAndNameLabel: UILabel = {
+    private let idAndNameLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 28, weight: .bold)
         label.textColor = .ColorSet.light
@@ -37,7 +38,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let typeLabel: UILabel = {
+    private let typeLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light
@@ -46,7 +47,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let heightLabel: UILabel = {
+    private let heightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light
@@ -55,7 +56,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let weightLabel: UILabel = {
+    private let weightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light

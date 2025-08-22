@@ -7,7 +7,7 @@
 
 import UIKit
 
-class PokemonDetailViewController: BaseViewController {
+final class PokemonDetailViewController: BaseViewController {
     private let rootView: PokemonDetailView
     private let id: Int
     private let networkManager = NetworkManager.shared

@@ -7,7 +7,7 @@
 
 import UIKit
 
-class PokemonListCell: UICollectionViewCell {
+final class PokemonListCell: UICollectionViewCell {
     
     private(set) var currentData: PokemonListData?
     
