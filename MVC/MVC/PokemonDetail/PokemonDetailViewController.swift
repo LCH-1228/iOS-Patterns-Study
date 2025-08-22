@@ -45,24 +45,36 @@ final class PokemonDetailViewController: BaseViewController {
     private func fetchData() {
         Task { @MainActor in
             do {
-                let result = try await networkManager.fetchPokemonDetail(id: id)
+                rootView.startLoading()
+                
+                async let detailResponse = networkManager.fetchPokemonDetail(id: id)
+                
+                let cachedData = imageCacheManager.getImage(forKey: id)
+                
+                async let imageResponse: Data? = {
+                    if let cachedData {
+                        return cachedData
+                    } else {
+                        return try? await networkManager.fetchImage(id: id)
+                    }
+                }()
+                
+                let result = try await detailResponse
+                let imageData = await imageResponse
+                
                 let pokemonData = PokemonDataFormatter.detailFormat(response: result)
                 rootView.configure(with: pokemonData)
-                
-                if let cachedData = imageCacheManager.getImage(forKey: id) {
-                    rootView.setImage(imageData: cachedData)
+                if let imageData {
+                    rootView.setImage(imageData: imageData)
+                    imageCacheManager.setImage(imageData, forKey: id)
                 } else {
-                    if let imageData = try await networkManager.fetchImage(id: id) {
-                        rootView.setImage(imageData: imageData)
-                        imageCacheManager.setImage(imageData, forKey: id)
-                    } else {
-                        rootView.setDefaultImage()
-                        showToast(message: "이미지가 없는 포켓몬 입니다.", opcity: 0.7)
-                    }
+                    rootView.setDefaultImage()
+                    showToast(message: "이미지가 없는 포켓몬 입니다.", opcity: 0.7)
                 }
             } catch {
                 showError(error: error)
             }
+            rootView.stopLoading()
         }
     }
     
