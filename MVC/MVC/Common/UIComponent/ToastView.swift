@@ -42,7 +42,7 @@ final class ToastView: UIStackView {
         self.message = message
         self.opcity = opcity
         
-        super.init(frame: .null)
+        super.init(frame: .zero)
         
         setup()
         [
