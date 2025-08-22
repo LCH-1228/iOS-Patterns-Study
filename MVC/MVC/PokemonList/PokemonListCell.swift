@@ -7,9 +7,11 @@
 
 import UIKit
 
-class PokemonListCell: UICollectionViewCell {
+final class PokemonListCell: UICollectionViewCell {
     
     private(set) var currentData: PokemonListData?
+    
+    private let loadingIndicator = UIActivityIndicatorView(style: .medium)
     
     private let imageView: UIImageView = {
         let imageView = UIImageView()
@@ -35,16 +37,34 @@ class PokemonListCell: UICollectionViewCell {
         super.prepareForReuse()
         imageView.image = nil
         currentData = nil
+        loadingIndicator.stopAnimating()
     }
     
     private func setupUI() {
         contentView.addSubview(imageView)
+        contentView.addSubview(loadingIndicator)
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        loadingIndicator.color = .ColorSet.secondary
         NSLayoutConstraint.activate([
             imageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+            imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
+            loadingIndicator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            loadingIndicator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            loadingIndicator.topAnchor.constraint(equalTo: contentView.topAnchor),
+            loadingIndicator.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
+    }
+    
+    func startLoading() {
+        imageView.image = nil
+        loadingIndicator.startAnimating()
+    }
+    
+    func stopLoading() {
+        loadingIndicator.stopAnimating()
     }
     
     func configure(with data: PokemonListData) {
@@ -53,9 +73,11 @@ class PokemonListCell: UICollectionViewCell {
     
     func setImage(imageData: Data) {
         imageView.image = UIImage(data: imageData)
+        stopLoading()
     }
     
     func setDefaultImage() {
         imageView.image = UIImage(resource: .default)
+        stopLoading()
     }
 }

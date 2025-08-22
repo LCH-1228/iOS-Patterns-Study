@@ -7,7 +7,7 @@
 
 import UIKit
 
-class PokemonDetailViewController: BaseViewController {
+final class PokemonDetailViewController: BaseViewController {
     private let rootView: PokemonDetailView
     private let id: Int
     private let networkManager = NetworkManager.shared
@@ -43,46 +43,42 @@ class PokemonDetailViewController: BaseViewController {
     }
     
     private func fetchData() {
-        networkManager.fetchPokemonDetail(id: id) { [weak self] response in
-            guard let self else { return }
-            switch response {
-            case .success(let result):
-                let pokemonData = PokemonDataFormatter.detailFormat(response: result)
+        Task { @MainActor in
+            do {
+                rootView.startLoading()
                 
-                if let cachedData = imageCacheManager.getImage(forKey: id) {
-                    DispatchQueue.main.async {
-                        self.rootView.setImage(imageData: cachedData)
+                async let detailResponse = networkManager.fetchPokemonDetail(id: id)
+                
+                let cachedData = imageCacheManager.getImage(forKey: id)
+                
+                async let imageResponse: Data? = {
+                    if let cachedData {
+                        return cachedData
+                    } else {
+                        return try? await networkManager.fetchImage(id: id)
                     }
+                }()
+                
+                let result = try await detailResponse
+                let imageData = await imageResponse
+                
+                let pokemonData = PokemonDataFormatter.detailFormat(response: result)
+                rootView.configure(with: pokemonData)
+                if let imageData {
+                    rootView.setImage(imageData: imageData)
+                    imageCacheManager.setImage(imageData, forKey: id)
                 } else {
-                    networkManager.fetchImage(id: id) { secondResponse in
-                        switch secondResponse {
-                        case .success(let data):
-                            DispatchQueue.main.async {
-                                if let data {
-                                    self.rootView.setImage(imageData: data)
-                                } else {
-                                    self.rootView.setDefaultImage()
-                                    self.showToast(message: "이미지가 없는 포켓몬 입니다.", opcity: 0.7)
-                                }
-                            }
-                        case .failure(let error):
-                            DispatchQueue.main.async {
-                                self.showError(error: error)
-                            }
-                        }
-                    }
+                    rootView.setDefaultImage()
+                    showToast(message: "이미지가 없는 포켓몬 입니다.", opcity: 0.7)
                 }
-                DispatchQueue.main.async {
-                    self.rootView.configure(with: pokemonData)
-                }
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    self.showError(error: error)
-                }
+            } catch {
+                showError(error: error)
             }
+            rootView.stopLoading()
         }
     }
     
+    @MainActor
     private func showError(error: Error) {
         let message: String
         if let networkError = error as? NetworkError {

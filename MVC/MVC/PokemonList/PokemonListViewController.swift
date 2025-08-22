@@ -68,28 +68,24 @@ final class PokemonListViewController: BaseViewController {
             guard let id = itemIdentifier.id else { return cell }
             
             cell.configure(with: itemIdentifier)
-            
+            cell.startLoading()
             if let cachedData = self.imageCacheManager.getImage(forKey: id) {
                 cell.setImage(imageData: cachedData)
             } else {
-                self.networkManager.fetchImage(id: id) { [weak cell] response in
-                    
-                    guard cell?.currentData == itemIdentifier else {
-                        return
-                    }
-                    
-                    DispatchQueue.main.async {
-                        switch response {
-                        case .success(let data):
-                            if let data {
-                                cell?.setImage(imageData: data)
-                                self.imageCacheManager.setImage(data, forKey: id)
-                            } else {
-                                cell?.setDefaultImage()
-                            }
-                        case .failure(let error):
-                            self.showError(error: error)
+                Task { @MainActor in
+                    do {
+                        let data = try await self.networkManager.fetchImage(id: id)
+                        
+                        guard cell.currentData == itemIdentifier else { return }
+                        
+                        if let imageData = data {
+                            cell.setImage(imageData: imageData)
+                            self.imageCacheManager.setImage(imageData, forKey: id)
+                        } else {
+                            cell.setDefaultImage()
                         }
+                    } catch {
+                        self.showError(error: error)
                     }
                 }
             }
@@ -101,22 +97,44 @@ final class PokemonListViewController: BaseViewController {
         guard !isFetching else { return }
         isFetching = true
         
-        networkManager.fetchPokemonList(offset: offset) { [weak self] response in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                switch response {
-                case .success(let result):
-                    self.pokemonList.append(contentsOf: result.results)
-                    self.updateSnapshot()
-                    self.isEndData = result.next == nil ? true : false
-                case .failure(let error):
-                    self.showError(error: error)
+        Task { @MainActor in
+            do {
+                let result = try await networkManager.fetchPokemonList(offset: offset)
+                pokemonList.append(contentsOf: result.results)
+                updateSnapshot()
+                isEndData = result.next == nil ? true : false
+                
+                Task.detached { [weak self] in
+                    guard let self else { return }
+                    await self.prefetchImages(for: result.results)
                 }
-                self.isFetching = false
+            } catch {
+                showError(error: error)
+            }
+            isFetching = false
+        }
+    }
+    
+    // MARK: - Prefetch Images
+    // UX 개선을 위해 fetchPokemonList직 후 이미지를 imageCacheManager에 저장
+    // 셀 에서 이미지 로딩 로직이 있으므로 예외처리 생략
+    private func prefetchImages(for items: [PokemonListData]) async {
+        for item in items {
+            guard let id = item.id else { continue }
+            
+            if imageCacheManager.getImage(forKey: id) != nil { continue }
+            
+            do {
+                if let data = try await networkManager.fetchImage(id: id) {
+                    imageCacheManager.setImage(data, forKey: id)
+                }
+            } catch {
+                
             }
         }
     }
     
+    @MainActor
     private func updateSnapshot() {
         var snapshot = NSDiffableDataSourceSnapshot<Section, PokemonListData>()
         snapshot.appendSections([.main])
@@ -125,6 +143,7 @@ final class PokemonListViewController: BaseViewController {
         dataSource.apply(snapshot, animatingDifferences: true)
     }
     
+    @MainActor
     private func showError(error: Error) {
         let message: String
         if let networkError = error as? NetworkError {

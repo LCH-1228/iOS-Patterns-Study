@@ -7,25 +7,28 @@
 
 import UIKit
 
-class PokemonDetailView: UIView {
+final class PokemonDetailView: UIView {
     
-    let contentsBackgroundView: UIView = {
+    private let loadingIndicator = UIActivityIndicatorView(style: .large)
+    
+    private let contentsBackgroundView: UIView = {
         let view = UIView()
         view.backgroundColor = .ColorSet.secondary
         view.layer.cornerRadius = 8
         view.clipsToBounds = true
+        view.isHidden = true
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
-    let imageView: UIImageView = {
+    private let imageView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
     
-    let idAndNameLabel: UILabel = {
+    private let idAndNameLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 28, weight: .bold)
         label.textColor = .ColorSet.light
@@ -37,7 +40,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let typeLabel: UILabel = {
+    private let typeLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light
@@ -46,7 +49,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let heightLabel: UILabel = {
+    private let heightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light
@@ -55,7 +58,7 @@ class PokemonDetailView: UIView {
         return label
     }()
     
-    let weightLabel: UILabel = {
+    private let weightLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 20, weight: .bold)
         label.textColor = .ColorSet.light
@@ -76,12 +79,16 @@ class PokemonDetailView: UIView {
     
     private func setupUI() {
         backgroundColor = .ColorSet.primary
+        loadingIndicator.color = .ColorSet.light
         addSubview(contentsBackgroundView)
         contentsBackgroundView.addSubview(imageView)
         contentsBackgroundView.addSubview(idAndNameLabel)
         contentsBackgroundView.addSubview(typeLabel)
         contentsBackgroundView.addSubview(heightLabel)
         contentsBackgroundView.addSubview(weightLabel)
+        addSubview(loadingIndicator)
+        
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
             contentsBackgroundView.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 32),
@@ -109,7 +116,19 @@ class PokemonDetailView: UIView {
             weightLabel.leadingAnchor.constraint(equalTo: contentsBackgroundView.leadingAnchor),
             weightLabel.trailingAnchor.constraint(equalTo: contentsBackgroundView.trailingAnchor),
             weightLabel.topAnchor.constraint(equalTo: heightLabel.bottomAnchor, constant: 10),
+            
+            loadingIndicator.centerXAnchor.constraint(equalTo: centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
+    }
+    
+    func startLoading() {
+        loadingIndicator.startAnimating()
+    }
+    
+    func stopLoading() {
+        loadingIndicator.stopAnimating()
+        contentsBackgroundView.isHidden = false
     }
     
     func configure(with data: PokemonDetailData) {
