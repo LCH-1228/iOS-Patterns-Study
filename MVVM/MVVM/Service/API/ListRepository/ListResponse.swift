@@ -23,6 +23,10 @@ struct ListData: Decodable, Hashable {
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(url)
+        if let id {
+            hasher.combine(id)
+        }
+        hasher.combine(name)
     }
     
     static func == (lhs: ListData, rhs: ListData) -> Bool {
