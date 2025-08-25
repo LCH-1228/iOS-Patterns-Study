@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum NetworkServiceError: Error {
+enum NetworkServiceError: APIErrorProtocol {
     case invalidURL
     case invalidResponse
     case statusCodeError(statusCode: Int)

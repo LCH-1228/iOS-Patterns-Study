@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum ListRepositoryError: Error {
+enum ListRepositoryError: APIErrorProtocol {
     case decodingFailed
     
     var message: String {
