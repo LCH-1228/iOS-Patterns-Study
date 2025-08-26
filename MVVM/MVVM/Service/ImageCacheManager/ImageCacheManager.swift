@@ -11,12 +11,15 @@ final class ImageCacheManager {
     static let shared = ImageCacheManager()
     private let cache = NSCache<NSNumber, NSData>()
     
-    private init() {}
+    private init() {
+        cache.countLimit = 1400
+        cache.totalCostLimit = 1024 * 1024 * 300
+    }
     
     func setImage(_ data: Data, forKey key: Int) {
         let nsData = NSData(data: data)
         let nsKey = NSNumber(value: key)
-        cache.setObject(nsData, forKey: nsKey)
+        cache.setObject(nsData, forKey: nsKey, cost: data.count)
     }
     
     func getImage(forKey key: Int) -> Data? {
