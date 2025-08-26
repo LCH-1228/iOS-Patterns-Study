@@ -129,9 +129,8 @@ final class ListViewController: UIViewController {
 extension ListViewController: UICollectionViewDelegate {
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let item = viewModel.listData[indexPath.row]
-        // TODO: DetailView 구현후 관련 로직 추가 필요
-        debugPrint(item)
+        guard let id = viewModel.listData[indexPath.row].id else { return }
+        viewModel.showDetail(id: id)
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {

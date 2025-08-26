@@ -10,14 +10,20 @@ import UIKit
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
-
+    var coordinator: Coordinator?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         let window = UIWindow(windowScene: windowScene)
-        let listDependencies = DIContainer.shared.makeListDependencies()
-        let listViewModel = ListViewModel(dependencies: listDependencies)
-        let listViewController = ListViewController(viewModel: listViewModel)
+        
+        let navigationController = UINavigationController()
+        let coordinator = Coordinator(navigationController: navigationController)
+        self.coordinator = coordinator
+        coordinator.start()
+        
+        window.rootViewController = navigationController
+        window.makeKeyAndVisible()
+        self.window = window
         
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -25,10 +31,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         appearance.shadowColor = .ColorSet.primary
         
         UINavigationBar.appearance().standardAppearance = appearance
-        
-        window.rootViewController = UINavigationController(rootViewController: listViewController)
-        window.makeKeyAndVisible()
-        self.window = window
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {

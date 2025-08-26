@@ -6,12 +6,12 @@
 //
 
 import Foundation
-import Combine
 
 final class ListViewModel {
     private let listRepository: ListRepositoryProtocol
     private let imageRepository: ImageRepositoryProtocol
     private let imageCacheManager: ImageCacheManager
+    private let navigateToDetail: (Int) -> Void
     
     private var isFetching = false
     private var offset = 0
@@ -20,10 +20,11 @@ final class ListViewModel {
     private var imageFetchTasks = [Int: Task<Data?, Error>]()
     private let imageFetchQueue = DispatchQueue(label: "imageFetchQueue")
     
-    init(dependencies: ListDependencies) {
+    init(dependencies: ListDependencies, navigateToDetail: @escaping (Int) -> Void) {
         self.listRepository = dependencies.listRepository
         self.imageRepository = dependencies.imageRepository
         self.imageCacheManager = dependencies.imageCacheManager
+        self.navigateToDetail = navigateToDetail
     }
     
     private func fetchList() async throws -> ListResponse {
@@ -78,5 +79,9 @@ final class ListViewModel {
             imageFetchTasks[id]?.cancel()
             imageFetchTasks[id] = nil
         }
+    }
+    
+    func showDetail(id: Int) {
+        navigateToDetail(id)
     }
 }
