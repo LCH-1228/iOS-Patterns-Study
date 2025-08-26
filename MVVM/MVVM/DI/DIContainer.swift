@@ -21,6 +21,19 @@ final class DIContainer {
         return ListDependencies(
             listRepository: listRepository,
             imageRepository: imageRepository,
-            imageCacheManager: imageCacheManager)
+            imageCacheManager: imageCacheManager
+        )
+    }
+    
+    func makeDetailDependencies() -> DetailDependencies {
+        let networkService = NetworkService()
+        let detailRepository = DetailRepository(networkService: networkService)
+        let imageRepository = ImageRepository(networkService: networkService)
+        
+        return DetailDependencies(
+            detailRepository: detailRepository,
+            imageRepository: imageRepository,
+            imageCacheManager: imageCacheManager
+        )
     }
 }
