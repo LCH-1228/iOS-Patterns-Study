@@ -13,10 +13,10 @@ final class DetailViewModel {
     private let imageCacheManager: ImageCacheManager
     private let id: Int
     
-    init(detailDependencies: DetailDependencies, id: Int) {
-        self.detailRepository = detailDependencies.detailRepository
-        self.imageRepository = detailDependencies.imageRepository
-        self.imageCacheManager = detailDependencies.imageCacheManager
+    init(dependencies: DetailDependencies, id: Int) {
+        self.detailRepository = dependencies.detailRepository
+        self.imageRepository = dependencies.imageRepository
+        self.imageCacheManager = dependencies.imageCacheManager
         self.id = id
     }
     

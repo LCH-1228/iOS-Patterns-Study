@@ -38,7 +38,7 @@ final class Coordinator: NSObject, CoordinatorProtocol {
 
     private func showDetail(id: Int) {
         let detailDependencies = DIContainer.shared.makeDetailDependencies()
-        let detailVM = DetailViewModel(detailDependencies: detailDependencies, id: id)
+        let detailVM = DetailViewModel(dependencies: detailDependencies, id: id)
         let detailVC = DetailViewController(viewModel: detailVM)
         navigationController.pushViewController(detailVC, animated: true)
     }
