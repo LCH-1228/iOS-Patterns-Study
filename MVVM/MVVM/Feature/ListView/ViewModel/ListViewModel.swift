@@ -38,6 +38,7 @@ final class ListViewModel {
     func fetchCellData() async throws {
         guard !isFetching else { return }
         isFetching = true
+        guard !isEnd else { return }
         
         let response = try await fetchList()
         listData.append(contentsOf: response.results)
