@@ -11,27 +11,10 @@ struct ListResponse: Decodable {
     let count: Int
     let next: String?
     let previous: String?
-    let results: [ListData]
+    let results: [ListResult]
 }
 
-struct ListData: Decodable, Hashable {
+struct ListResult: Decodable, Hashable {
     let name: String
     let url: URL
-    var id: Int? {
-        return Int(url.lastPathComponent)
-    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(url)
-        if let id {
-            hasher.combine(id)
-        }
-        hasher.combine(name)
-    }
-    
-    static func == (lhs: ListData, rhs: ListData) -> Bool {
-        return lhs.url == rhs.url &&
-        lhs.name == rhs.name &&
-        lhs.id == rhs.id
-    }
 }

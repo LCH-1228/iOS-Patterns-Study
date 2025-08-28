@@ -9,7 +9,7 @@ import UIKit
 
 final class ListCell: UICollectionViewCell {
     
-    private(set) var currentData: ListData?
+    private(set) var currentData: Int?
     
     private let loadingIndicator = UIActivityIndicatorView(style: .medium)
     
@@ -67,16 +67,22 @@ final class ListCell: UICollectionViewCell {
         loadingIndicator.stopAnimating()
     }
     
-    func configure(with data: ListData) {
-        currentData = data
-    }
-    
-    func setImage(imageData: Data?) {
-        if let imageData {
+    private func setImage(with data: Data?) {
+        if let imageData = data {
             imageView.image = UIImage(data: imageData)
         } else {
             imageView.image = UIImage(resource: .default)
         }
-        stopLoading()
+    }
+    
+    func configure(with listData: ListData) {
+        // TODO: loadingIndicator 관련 로직 추가 필요
+        // loadingIndicator start, stop 관련 로직 작성 필요
+        currentData = listData.id
+        
+        if currentData == listData.id {
+            setImage(with: listData.imageData)
+            stopLoading()
+        }
     }
 }

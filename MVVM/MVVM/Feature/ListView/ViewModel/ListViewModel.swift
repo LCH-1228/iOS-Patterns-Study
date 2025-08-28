@@ -6,19 +6,34 @@
 //
 
 import Foundation
+import Combine
 
-final class ListViewModel {
+final class ListViewModel: ViewModelProtocol {
+    
     private let listRepository: ListRepositoryProtocol
     private let imageRepository: ImageRepositoryProtocol
     private let imageCacheManager: ImageCacheManager
     private let navigateToDetail: (Int) -> Void
     
-    private var isFetching = false
-    private var offset = 0
-    private(set) var listData = [ListData]()
-    private(set) var isEnd = false
-    private var imageFetchTasks = [Int: Task<Data?, Error>]()
-    private let imageFetchQueue = DispatchQueue(label: "imageFetchQueue")
+    private var offsetValue = 0
+    private var offsetStep = 20
+    
+    private let listDataSubject = CurrentValueSubject<[ListData], Never>([])
+    private let errorSubject = PassthroughSubject<Error, Never>()
+    private let isFetchingSubject = CurrentValueSubject<Bool, Never>(false)
+    private let isEndSubject = CurrentValueSubject<Bool, Never>(false)
+    private var cancellable = Set<AnyCancellable>()
+    
+    struct Input {
+        let fetchTriggered: AnyPublisher<Void, Never>
+        let itemSelected: AnyPublisher<Int, Never>
+    }
+    
+    struct Output {
+        let listDataPublisher: AnyPublisher<[ListData], Never>
+        let isEndPublisher: AnyPublisher<Bool, Never>
+        let errorPublisher: AnyPublisher<Error, Never>
+    }
     
     init(dependencies: ListDependencies, navigateToDetail: @escaping (Int) -> Void) {
         self.listRepository = dependencies.listRepository
@@ -27,59 +42,107 @@ final class ListViewModel {
         self.navigateToDetail = navigateToDetail
     }
     
-    private func fetchList() async throws -> ListResponse {
-        isFetching = true
-        defer { isFetching = false }
-        let response = try await listRepository.fetchList(offset: offset)
-        
-        return response
-    }
-    
-    func fetchCellData() async throws {
-        guard !isFetching else { return }
-        isFetching = true
-        guard !isEnd else { return }
-        
-        let response = try await fetchList()
-        listData.append(contentsOf: response.results)
-        isEnd = response.next == nil ? true : false
-        offset += 20
-    }
-    
-    func fetchImage(id: Int) async throws -> Data? {
-        if let cached = imageCacheManager.getImage(forKey: id) {
-            return cached
-        }
-        
-        imageFetchQueue.sync {
-            imageFetchTasks[id]?.cancel()
-        }
-        
-        let task = Task { [weak self] () -> Data? in
-            guard let self else { return nil }
-            if let data = try await self.imageRepository.fetchImage(id: id) {
-                self.imageCacheManager.setImage(data, forKey: id)
-                return data
+    func transform(_ input: Input) -> Output {
+        // TODO: loadingIndicator 관련 로직 구현 필요
+        // fetchList 후 값 우선 방출(startLoading = true, imageData = nil)
+        // fetchImage 후 값 최종 방출(startLoading = false, imageData = fetchImage 결과 Data)
+        input.fetchTriggered
+            .filter { [weak self] _ in
+                guard let self else { return false }
+                return !self.isFetchingSubject.value && !self.isEndSubject.value
             }
-            return nil
-        }
+            .handleEvents(receiveOutput: { [weak self] _ in
+                guard let self else { return }
+                self.isFetchingSubject.send(true)
+            })
+            .flatMap { [weak self] _ -> AnyPublisher<ListResponse, Error> in
+                guard let self else {
+                    return Empty<ListResponse, Error>()
+                        .eraseToAnyPublisher()
+                }
+                
+                return Future<ListResponse, Error> { future in
+                    Task {
+                        do {
+                            let response = try await self.listRepository.fetchList(offset: self.offsetValue)
+                            self.offsetValue += self.offsetStep
+                            future(.success(response))
+                        } catch {
+                            future(.failure(error))
+                        }
+                    }
+                }
+                .eraseToAnyPublisher()
+            }
+            .handleEvents(receiveOutput: { [weak self] response in
+                guard let self else { return }
+                self.isEndSubject.send(response.next == nil)
+            })
+            .map { $0.results }
+            .flatMap { [weak self] results -> AnyPublisher<[ListData], Error> in
+                guard let self else {
+                    return Empty<[ListData],Error>()
+                        .eraseToAnyPublisher()
+                }
+                
+                return Future<[ListData], Error> { future in
+                    Task {
+                        do {
+                            let listDataArray = try await withThrowingTaskGroup(of: (Int, ListData).self) { group in
+                                for (index, data) in results.enumerated() {
+                                    group.addTask {
+                                        guard let id = Int(data.url.lastPathComponent) else { throw NSError(domain: "아이디 사용 불가", code: -1) }
+                                        let imageData = try await self.imageRepository.fetchImage(id: id)
+                                        let listData = ListData(name: data.name, url: data.url, imageData: imageData, id: id)
+                                        return (index, listData)
+                                    }
+                                }
+                                
+                                var tempArray = Array<ListData?>(repeating: nil, count: results.count)
+                                for try await (index, listData) in group {
+                                    tempArray[index] = listData
+                                }
+                                return tempArray.compactMap { $0 }
+                            }
+                            future(.success(listDataArray))
+                        } catch {
+                            future(.failure(error))
+                        }
+                    }
+                }
+                .eraseToAnyPublisher()
+            }
+            .catch { [weak self] error -> Just<[ListData]> in
+                guard let self else { return Just([]) }
+                self.errorSubject.send(error)
+                self.isFetchingSubject.send(false)
+                // TODO: Error 발생시 offsetStep만큼 증가한 offsetValue 롤백 로직 필요.
+                return Just([])
+            }
+            .handleEvents(receiveOutput: { [weak self] _ in
+                guard let self else { return }
+                self.isFetchingSubject.send(false)
+            })
+            .sink(receiveValue: { [weak self] listData in
+                guard let self else { return }
+                var currentData = self.listDataSubject.value
+                currentData.append(contentsOf: listData)
+                self.listDataSubject.send(currentData)
+            })
+            .store(in: &cancellable)
+
+        input.itemSelected
+            .sink { [weak self] id in
+                self?.navigateToDetail(id)
+            }
+            .store(in: &cancellable)
         
-        imageFetchQueue.sync {
-            imageFetchTasks[id] = task
-        }
         
-        let result = try await task.value
-        imageFetchQueue.sync {
-            imageFetchTasks[id] = nil
-        }
-        return result
-    }
-    
-    func cancelImageFetch(id: Int) {
-        imageFetchQueue.sync {
-            imageFetchTasks[id]?.cancel()
-            imageFetchTasks[id] = nil
-        }
+        return Output(
+            listDataPublisher: listDataSubject.eraseToAnyPublisher(),
+            isEndPublisher: isEndSubject.eraseToAnyPublisher(),
+            errorPublisher: errorSubject.eraseToAnyPublisher()
+        )
     }
     
     func showDetail(id: Int) {
