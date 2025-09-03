@@ -6,9 +6,12 @@
 //
 
 import UIKit
+import Combine
 
 final class DetailViewController: UIViewController {
     private let viewModel: DetailViewModel
+    
+    private var cancellable = Set<AnyCancellable>()
     
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
     
@@ -81,7 +84,7 @@ final class DetailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        loadData()
+        bind()
     }
     
     private func setupUI() {
@@ -131,36 +134,43 @@ final class DetailViewController: UIViewController {
         ])
     }
     
-    private func loadData() {
-        startLoading()
+    private func bind() {
+        let input = DetailViewModel.Input(initialFetch: Just(Void()).eraseToAnyPublisher())
+        let output = viewModel.transform(input)
         
-        Task {
-            async let detailData = viewModel.fetchDetail()
-            async let imageData = viewModel.fetchImage()
-            
-            do {
-                let detail = try await detailData
-                let image = try await imageData
-                Task { @MainActor in
-                    configure(with: detail)
-                    setImage(imageData: image)
-                }
-            } catch {
-                Task{ @MainActor in
-                    stopLoading()
-                    handleError(error)
-                }
+        output.detailDataPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] detailData in
+                guard let self else { return }
+                self.configure(with: detailData)
             }
+            .store(in: &cancellable)
+        
+        output.isLoadingPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                guard let self else { return }
+                self.setLoading(isLoading)
+            }
+            .store(in: &cancellable)
+        
+        output.errorPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] error in
+                guard let self else { return }
+                handleError(error)
+            }
+            .store(in: &cancellable)
+        
+    }
+    
+    private func setLoading(_ isLoading: Bool) {
+        if isLoading {
+            loadingIndicator.startAnimating()
+        } else {
+            loadingIndicator.stopAnimating()
+            contentsBackgroundView.isHidden = false
         }
-    }
-    
-    private func startLoading() {
-        loadingIndicator.startAnimating()
-    }
-    
-    private func stopLoading() {
-        loadingIndicator.stopAnimating()
-        contentsBackgroundView.isHidden = false
     }
     
     private func configure(with data: DetailData) {
@@ -170,15 +180,12 @@ final class DetailViewController: UIViewController {
         typeLabel.text = data.type
         heightLabel.text = data.height
         weightLabel.text = data.weight
-    }
-    
-    private func setImage(imageData: Data?) {
-        if let imageData {
+        
+        if let imageData = data.imageData {
             imageView.image = UIImage(data: imageData)
         } else {
             imageView.image = UIImage(resource: .default)
         }
-        stopLoading()
     }
     
     private func handleError(_ error: Error) {
