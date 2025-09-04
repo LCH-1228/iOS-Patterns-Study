@@ -31,6 +31,8 @@ final class ListViewController: UIViewController {
         return imageView
     }()
     
+    private lazy var emptyStateView = UIStackView()
+    
     init(viewModel: ListViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
@@ -98,7 +100,12 @@ final class ListViewController: UIViewController {
             .sink { [weak self] listData in
                 // TODO: loadingIndicator 관련 로직 구현 필요
                 // ViewModel에서 방출하는 값 업데이트시 hash관련 충돌 발생 가능성 있을 수 있음
-                self?.updateSnapshot(with: listData)
+                if listData.isEmpty {
+                    self?.showEmptyState()
+                } else {
+                    self?.hideEmptyState()
+                    self?.updateSnapshot(with: listData)
+                }
             }
             .store(in: &cancellable)
         
@@ -106,7 +113,7 @@ final class ListViewController: UIViewController {
             .filter { $0 }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isEnd in
-                self?.showToast(message: "끝?", opacity: 0.7)
+                self?.showToast(message: "페이지의 끝입니다.?", opacity: 0.7)
             }
             .store(in: &cancellable)
         
@@ -120,11 +127,18 @@ final class ListViewController: UIViewController {
     
     @MainActor
     private func updateSnapshot(with data: [ListData]) {
-        var snapshot = NSDiffableDataSourceSnapshot<Section, ListData>()
-        snapshot.appendSections([.main])
-        snapshot.appendItems(data, toSection: .main)
         
-        dataSource.apply(snapshot, animatingDifferences: true)
+        let currentSnapshot = dataSource.snapshot()
+        let currentData = currentSnapshot.itemIdentifiers
+        
+        if currentData != data {
+            var snapshot = NSDiffableDataSourceSnapshot<Section, ListData>()
+            snapshot.appendSections([.main])
+            snapshot.appendItems(data, toSection: .main)
+            
+            dataSource.apply(snapshot, animatingDifferences: true)
+        }
+        
     }
     
     private func handleError(_ error: Error) {
@@ -138,6 +152,44 @@ final class ListViewController: UIViewController {
         default:
             debugPrint("Error:", error.localizedDescription)
         }
+    }
+    
+    private func showEmptyState() {
+        emptyStateView.backgroundColor = .ColorSet.secondary
+        emptyStateView.axis = .vertical
+        emptyStateView.alignment = .center
+        emptyStateView.spacing = 20
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        
+        
+        let emptyImageView = UIImageView()
+        emptyImageView.image = .default
+        emptyImageView.contentMode = .scaleAspectFit
+        emptyImageView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let emptyLabel = UILabel()
+        emptyLabel.text = "데이터가 없습니다."
+        emptyLabel.textAlignment = .center
+        emptyLabel.textColor = .ColorSet.light
+        emptyLabel.sizeToFit()
+        
+        emptyStateView.addArrangedSubview(emptyImageView)
+        emptyStateView.addArrangedSubview(emptyLabel)
+        view.addSubview(emptyStateView)
+        emptyStateView.bringSubviewToFront(view)
+        
+        NSLayoutConstraint.activate([
+            emptyStateView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            
+            emptyImageView.widthAnchor.constraint(equalToConstant: 120),
+            emptyImageView.heightAnchor.constraint(equalTo: emptyImageView.widthAnchor)
+        ])
+        
+    }
+    
+    private func hideEmptyState() {
+        emptyStateView.removeFromSuperview()
     }
 }
 
