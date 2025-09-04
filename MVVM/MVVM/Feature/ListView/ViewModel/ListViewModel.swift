@@ -55,10 +55,9 @@ final class ListViewModel: ViewModelProtocol {
                 guard let self else { return }
                 self.isFetchingSubject.send(true)
             })
-            .flatMap { [weak self] _ -> AnyPublisher<ListResponse, Error> in
+            .flatMap { [weak self] _ -> AnyPublisher<[ListData], Never> in
                 guard let self else {
-                    return Empty<ListResponse, Error>()
-                        .eraseToAnyPublisher()
+                    return Empty().eraseToAnyPublisher()
                 }
                 
                 return Future<ListResponse, Error> { future in
@@ -73,51 +72,53 @@ final class ListViewModel: ViewModelProtocol {
                     }
                 }
                 .eraseToAnyPublisher()
-            }
-            .handleEvents(receiveOutput: { [weak self] response in
-                guard let self else { return }
-                self.isEndSubject.send(response.next == nil)
-            })
-            .map { $0.results }
-            .flatMap { [weak self] results -> AnyPublisher<[ListData], Error> in
-                guard let self else {
-                    return Empty<[ListData],Error>()
-                        .eraseToAnyPublisher()
-                }
-                
-                return Future<[ListData], Error> { future in
-                    Task {
-                        do {
-                            let listDataArray = try await withThrowingTaskGroup(of: (Int, ListData).self) { group in
-                                for (index, data) in results.enumerated() {
-                                    group.addTask {
-                                        guard let id = Int(data.url.lastPathComponent) else { throw NSError(domain: "아이디 사용 불가", code: -1) }
-                                        let imageData = try await self.imageRepository.fetchImage(id: id)
-                                        let listData = ListData(name: data.name, url: data.url, imageData: imageData, id: id)
-                                        return (index, listData)
+                .handleEvents(receiveOutput: { [weak self] response in
+                    guard let self else { return }
+                    self.isEndSubject.send(response.next == nil)
+                })
+                .map { $0.results }
+                .flatMap { [weak self] results -> AnyPublisher<[ListData], Error> in
+                    guard let self else {
+                        return Empty<[ListData],Error>()
+                            .eraseToAnyPublisher()
+                    }
+                    
+                    return Future<[ListData], Error> { future in
+                        Task {
+                            do {
+                                let listDataArray = try await withThrowingTaskGroup(of: (Int, ListData).self) { group in
+                                    for (index, data) in results.enumerated() {
+                                        group.addTask {
+                                            //TODO: 별도 에러로 정의 필요.
+                                            guard let id = Int(data.url.lastPathComponent) else { throw NSError(domain: "아이디 사용 불가", code: -1) }
+                                            let imageData = try await self.imageRepository.fetchImage(id: id)
+                                            let listData = ListData(name: data.name, url: data.url, imageData: imageData, id: id)
+                                            return (index, listData)
+                                        }
                                     }
+                                    
+                                    var tempArray = Array<ListData?>(repeating: nil, count: results.count)
+                                    for try await (index, listData) in group {
+                                        tempArray[index] = listData
+                                    }
+                                    return tempArray.compactMap { $0 }
                                 }
-                                
-                                var tempArray = Array<ListData?>(repeating: nil, count: results.count)
-                                for try await (index, listData) in group {
-                                    tempArray[index] = listData
-                                }
-                                return tempArray.compactMap { $0 }
+                                future(.success(listDataArray))
+                            } catch {
+                                future(.failure(error))
                             }
-                            future(.success(listDataArray))
-                        } catch {
-                            future(.failure(error))
                         }
                     }
+                    .eraseToAnyPublisher()
+                }
+                .catch { [weak self] error -> AnyPublisher<[ListData], Never> in
+                    guard let self else { return Empty().eraseToAnyPublisher() }
+                    self.errorSubject.send(error)
+                    self.isFetchingSubject.send(false)
+                    self.offsetValue -= self.offsetStep
+                    return Empty().eraseToAnyPublisher()
                 }
                 .eraseToAnyPublisher()
-            }
-            .catch { [weak self] error -> Just<[ListData]> in
-                guard let self else { return Just([]) }
-                self.errorSubject.send(error)
-                self.isFetchingSubject.send(false)
-                // TODO: Error 발생시 offsetStep만큼 증가한 offsetValue 롤백 로직 필요.
-                return Just([])
             }
             .handleEvents(receiveOutput: { [weak self] _ in
                 guard let self else { return }
@@ -126,7 +127,10 @@ final class ListViewModel: ViewModelProtocol {
             .sink(receiveValue: { [weak self] listData in
                 guard let self else { return }
                 var currentData = self.listDataSubject.value
-                currentData.append(contentsOf: listData)
+                let newData = listData.filter { newItem in
+                    !currentData.contains(where: { $0.id == newItem.id })
+                }
+                currentData.append(contentsOf: newData)
                 self.listDataSubject.send(currentData)
             })
             .store(in: &cancellable)
@@ -143,9 +147,5 @@ final class ListViewModel: ViewModelProtocol {
             isEndPublisher: isEndSubject.eraseToAnyPublisher(),
             errorPublisher: errorSubject.eraseToAnyPublisher()
         )
-    }
-    
-    func showDetail(id: Int) {
-        navigateToDetail(id)
     }
 }
