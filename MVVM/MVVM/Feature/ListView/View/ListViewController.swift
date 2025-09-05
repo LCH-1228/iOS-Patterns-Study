@@ -98,8 +98,6 @@ final class ListViewController: UIViewController {
         output.listDataPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] listData in
-                // TODO: loadingIndicator 관련 로직 구현 필요
-                // ViewModel에서 방출하는 값 업데이트시 hash관련 충돌 발생 가능성 있을 수 있음
                 if listData.isEmpty {
                     self?.showEmptyState()
                 } else {

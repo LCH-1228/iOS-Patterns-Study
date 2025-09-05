@@ -10,15 +10,19 @@ import Foundation
 struct ListData: Hashable {
     let name: String
     let url: URL
-    let imageData: Data?
-    var id: Int
-    // TODO: loadingIndicator 관련 isLoading Bool 추가 필요
+    var image: Data?
+    let id: Int
+    var isLoading: Bool
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(image)
+        hasher.combine(isLoading)
     }
     
     static func == (lhs: ListData, rhs: ListData) -> Bool {
-        return lhs.id == rhs.id
+        return lhs.id == rhs.id &&
+        lhs.image == rhs.image &&
+        lhs.isLoading == rhs.isLoading
     }
 }

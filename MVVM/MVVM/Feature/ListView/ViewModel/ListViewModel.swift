@@ -43,10 +43,8 @@ final class ListViewModel: ViewModelProtocol {
     }
     
     func transform(_ input: Input) -> Output {
-        // TODO: loadingIndicator 관련 로직 구현 필요
-        // fetchList 후 값 우선 방출(startLoading = true, imageData = nil)
-        // fetchImage 후 값 최종 방출(startLoading = false, imageData = fetchImage 결과 Data)
         input.fetchTriggered
+            .receive(on: DispatchQueue.global())
             .filter { [weak self] _ in
                 guard let self else { return false }
                 return !self.isFetchingSubject.value && !self.isEndSubject.value
@@ -60,78 +58,83 @@ final class ListViewModel: ViewModelProtocol {
                     return Empty().eraseToAnyPublisher()
                 }
                 
-                return Future<ListResponse, Error> { future in
-                    Task {
-                        do {
-                            let response = try await self.listRepository.fetchList(offset: self.offsetValue)
-                            self.offsetValue += self.offsetStep
-                            future(.success(response))
-                        } catch {
-                            future(.failure(error))
-                        }
-                    }
-                }
-                .eraseToAnyPublisher()
-                .handleEvents(receiveOutput: { [weak self] response in
-                    guard let self else { return }
-                    self.isEndSubject.send(response.next == nil)
-                })
-                .map { $0.results }
-                .flatMap { [weak self] results -> AnyPublisher<[ListData], Error> in
-                    guard let self else {
-                        return Empty<[ListData],Error>()
-                            .eraseToAnyPublisher()
-                    }
-                    
-                    return Future<[ListData], Error> { future in
+                let subject = PassthroughSubject<[ListData], Error>()
+                let task = Task {
+                    let stream = AsyncThrowingStream<[ListData], Error> { continuation in
                         Task {
                             do {
-                                let listDataArray = try await withThrowingTaskGroup(of: (Int, ListData).self) { group in
-                                    for (index, data) in results.enumerated() {
+                                let response = try await self.listRepository.fetchList(offset: self.offsetValue)
+                                self.offsetValue += self.offsetStep
+                                self.isEndSubject.send(response.next == nil)
+                                
+                                let initialListData = response.results.compactMap { result -> ListData? in
+                                    guard let id = Int(result.url.lastPathComponent) else { return nil }
+                                    return ListData(name: result.name, url: result.url, image: nil, id: id, isLoading: true)
+                                }
+                                continuation.yield(initialListData)
+                                
+                                let finalListData = try await withThrowingTaskGroup(of: ListData.self, returning: [ListData].self) { group in
+                                    for item in initialListData {
                                         group.addTask {
-                                            //TODO: 별도 에러로 정의 필요.
-                                            guard let id = Int(data.url.lastPathComponent) else { throw NSError(domain: "아이디 사용 불가", code: -1) }
-                                            let imageData = try await self.imageRepository.fetchImage(id: id)
-                                            let listData = ListData(name: data.name, url: data.url, imageData: imageData, id: id)
-                                            return (index, listData)
+                                            var mutableItem = item
+                                            let imageData = try await self.imageRepository.fetchImage(id: item.id)
+                                            mutableItem.image = imageData
+                                            mutableItem.isLoading = false
+                                            return mutableItem
                                         }
                                     }
-                                    
-                                    var tempArray = Array<ListData?>(repeating: nil, count: results.count)
-                                    for try await (index, listData) in group {
-                                        tempArray[index] = listData
+                                    var collected = [ListData]()
+                                    collected.reserveCapacity(initialListData.count)
+                                    for try await anItem in group {
+                                        collected.append(anItem)
                                     }
-                                    return tempArray.compactMap { $0 }
+                                    return collected
                                 }
-                                future(.success(listDataArray))
+                                continuation.yield(finalListData)
+                                continuation.finish()
                             } catch {
-                                future(.failure(error))
+                                continuation.finish(throwing: error)
                             }
                         }
                     }
+                    
+                    do {
+                        for try await value in stream {
+                            subject.send(value)
+                        }
+                        subject.send(completion: .finished)
+                    } catch {
+                        subject.send(completion: .failure(error))
+                    }
+                }
+
+                return subject
+                    .handleEvents(receiveCompletion: { [weak self] completion in
+                        if case .finished = completion {
+                            self?.isFetchingSubject.send(false)
+                        }
+                    }, receiveCancel: { task.cancel() })
+                    .catch { [weak self] error -> AnyPublisher<[ListData], Never> in
+                        guard let self else { return Empty().eraseToAnyPublisher() }
+                        self.errorSubject.send(error)
+                        self.isFetchingSubject.send(false)
+                        self.offsetValue -= self.offsetStep
+                        return Empty().eraseToAnyPublisher()
+                    }
                     .eraseToAnyPublisher()
-                }
-                .catch { [weak self] error -> AnyPublisher<[ListData], Never> in
-                    guard let self else { return Empty().eraseToAnyPublisher() }
-                    self.errorSubject.send(error)
-                    self.isFetchingSubject.send(false)
-                    self.offsetValue -= self.offsetStep
-                    return Empty().eraseToAnyPublisher()
-                }
-                .eraseToAnyPublisher()
             }
-            .handleEvents(receiveOutput: { [weak self] _ in
-                guard let self else { return }
-                self.isFetchingSubject.send(false)
-            })
             .sink(receiveValue: { [weak self] listData in
                 guard let self else { return }
                 var currentData = self.listDataSubject.value
-                let newData = listData.filter { newItem in
-                    !currentData.contains(where: { $0.id == newItem.id })
+                
+                listData.forEach { newItem in
+                    if let index = currentData.firstIndex(where: { $0.id == newItem.id }) {
+                        currentData[index] = newItem
+                    } else {
+                        currentData.append(newItem)
+                    }
                 }
-                currentData.append(contentsOf: newData)
-                self.listDataSubject.send(currentData)
+                self.listDataSubject.send(currentData.sorted{ $0.id < $1.id })
             })
             .store(in: &cancellable)
 

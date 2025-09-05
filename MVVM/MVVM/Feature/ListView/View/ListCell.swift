@@ -76,13 +76,13 @@ final class ListCell: UICollectionViewCell {
     }
     
     func configure(with listData: ListData) {
-        // TODO: loadingIndicator 관련 로직 추가 필요
-        // loadingIndicator start, stop 관련 로직 작성 필요
         currentData = listData.id
         
-        if currentData == listData.id {
-            setImage(with: listData.imageData)
+        if listData.isLoading {
+            startLoading()
+        } else {
             stopLoading()
+            setImage(with: listData.image)
         }
     }
 }
